@@ -11,10 +11,12 @@ def receive_data(client_socket):
 
 def send_data(client_socket):
     while True:
-        message = input()
+        message = input("Enter a command: ")
         client_socket.send(message.encode())
         if message.lower() == "exit":
             break
+        response = client_socket.recv(1024).decode()
+        print(response)
 
 def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
