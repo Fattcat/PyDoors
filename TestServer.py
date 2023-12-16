@@ -15,6 +15,9 @@ def handle_client(client_socket, mouse_socket):
         
         handle_commands(data)
 
+        # Pošlete potvrzení klientovi
+        client_socket.send("Command successfully executed.".encode())
+
     client_socket.close()
 
 def handle_commands(data):
