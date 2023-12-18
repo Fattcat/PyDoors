@@ -1,48 +1,27 @@
 import socket
-import sys
-import threading
+import os
 
-def receive_data(client_socket):
-    while True:
-        data = client_socket.recv(1024).decode()
-        if not data:
-            break
-        print(data)
+def get_system_info():
+    system_info = f"Connected to PC: {os.uname().nodename}\nPublic IP: {get('https://api64.ipify.org').text}"
+    return system_info
 
-def send_data(client_socket):
-    while True:
-        message = input("Enter a command: ")
-        client_socket.send(message.encode())
-        if message.lower() == "exit":
-            break
-        response = client_socket.recv(1024).decode()
-        print(response)
+def connect_to_server():
+    host = '127.0.0.1'  # Zmeniť podľa potreby
+    port = 12345         # Zmeniť podľa potreby
 
-def main():
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    
-    # Zadejte adresu a port servera
-    server_address = ('IPAdress', 12345)
+    client_socket.connect((host, port))
 
-    try:
-        client_socket.connect(server_address)
-        print("Connected to the server.")
+    system_info = get_system_info()
+    client_socket.send(system_info.encode('utf-8'))
 
-        receive_thread = threading.Thread(target=receive_data, args=(client_socket,))
-        send_thread = threading.Thread(target=send_data, args=(client_socket,))
+    command = input("Enter command: ")
+    client_socket.send(command.encode('utf-8'))
 
-        receive_thread.start()
-        send_thread.start()
+    response = client_socket.recv(1024).decode('utf-8')
+    print(response)
 
-        receive_thread.join()
-        send_thread.join()
-
-    except Exception as e:
-        print(f"Error: {e}")
-
-    finally:
-        client_socket.close()
-        sys.exit()
+    client_socket.close()
 
 if __name__ == "__main__":
-    main()
+    connect_to_server()
