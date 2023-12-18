@@ -1,118 +1,75 @@
 import socket
-import threading
-import sys
-import pyautogui
-import time
+import os
+import shutil
 
-def handle_client(client_socket, mouse_socket):
-    while True:
-        data = client_socket.recv(1024).decode()
-        if not data:
-            break
+def start_server():
+    host = '127.0.0.1'  # Zmeniť podľa potreby
+    port = 12345         # Zmeniť podľa potreby
 
-        # Odešlete příkaz myši
-        mouse_socket.send(data.encode())
-        
-        handle_commands(data)
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(1)
 
-        # Pošlete potvrzení klientovi
-        client_socket.send("Command successfully executed.".encode())
+    print(f"Server čaká na pripojenie na {host}:{port}")
+
+    client_socket, client_address = server_socket.accept()
+    print(f"Pripojené od {client_address}")
+
+    command = client_socket.recv(1024).decode('utf-8')
+    
+    if command.startswith("Search"):
+        _, filename = command.split(" ", 1)
+        result = search_file(filename)
+        client_socket.send(result.encode('utf-8'))
+    elif command.startswith("Download"):
+        _, path = command.split(" ", 1)
+        result = download_files(path)
+        client_socket.send(result.encode('utf-8'))
+    elif command.startswith("Upload"):
+        _, filename = command.split(" ", 1)
+        result = upload_file(filename)
+        client_socket.send(result.encode('utf-8'))
+    elif command.startswith("List"):
+        result = list_files()
+        client_socket.send(result.encode('utf-8'))
+    else:
+        client_socket.send("Invalid command".encode('utf-8'))
 
     client_socket.close()
+    server_socket.close()
 
-def handle_commands(data):
+def search_file(filename):
+    for root, dirs, files in os.walk('/'):  # Zmeniť podľa potreby
+        if filename in files:
+            file_path = os.path.join(root, filename)
+            return f"File named: {filename} saved in path: {file_path}"
+    return f"File {filename} not found!"
+
+def download_files(path):
+    path = path.strip()
+    if os.path.isfile(path):
+        shutil.copy(path, os.path.join(os.path.dirname(__file__), os.path.basename(path)))
+        return f"File downloaded: {os.path.basename(path)}"
+    elif os.path.isdir(path):
+        files = os.listdir(path)
+        for file in files:
+            shutil.copy(os.path.join(path, file), os.path.join(os.path.dirname(__file__), file))
+        return f"All files in directory downloaded: {os.path.basename(path)}"
+    else:
+        return f"File or directory not found: {path}"
+
+def upload_file(filename):
     try:
-        action, *args = data.split(maxsplit=1)
+        shutil.copy(os.path.join(os.path.dirname(__file__), filename), "C:/User/Files/")
+        return f"File uploaded to C:/User/Files/: {filename}"
+    except FileNotFoundError:
+        return f"File not found: {filename}"
 
-        if action == "press":
-            keys = args[0].split(',')
-            for key in keys:
-                pyautogui.keyDown(key)
-            for key in keys:
-                pyautogui.keyUp(key)
-            print("Successfully sent command.")
-
-        elif action == "write":
-            pyautogui.write(args[0])
-            print("Successfully wrote text.")
-
-        elif action == "openWebSite":
-            import webbrowser
-            webbrowser.open(args[0])
-            print("Successfully opened the website.")
-
-        elif action == "moveMouse":
-            x, y = map(int, args[0].split(','))
-            move_mouse_handler(x, y)
-
-        elif action == "Click":
-            if args:
-                button, *coords = args[0].split()
-                if coords:
-                    x, y = map(int, coords[0].split(','))
-                    threading.Thread(target=click_handler, args=(button, x, y)).start()
-                else:
-                    threading.Thread(target=click_handler, args=(button,)).start()
-            else:
-                threading.Thread(target=click_handler).start()
-
-        elif action == "RightClick":
-            if args:
-                *coords, = args[0].split()
-                if coords:
-                    x, y = map(int, coords[0].split(','))
-                    threading.Thread(target=click_handler, args=('right', x, y)).start()
-                else:
-                    threading.Thread(target=click_handler, args=('right',)).start()
-
-        else:
-            print("Invalid command.")
-    except Exception as e:
-        print(f"Error processing command: {e}")
-
-def move_mouse_handler(x, y):
-    # Přesuňte kurzor myši na zadané souřadnice
-    pyautogui.moveTo(x, y)
-    print("Successfully moved mouse.")
-
-def click_handler(button='left', x=None, y=None):
-    if x is not None and y is not None:
-        # Pokud jsou poskytnuty souřadnice, přesuňte kurzor a stiskněte myš
-        pyautogui.moveTo(x, y)
-        time.sleep(0.01)
-    pyautogui.click(button=button)
-    print(f"Successfully {button}-clicked.")
-
-def main():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    # Zadejte adresu a port servera
-    server_address = ('IPAdress', 12345)
-
-    # Další socket pro komunikaci s druhým počítačem
-    mouse_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    mouse_address = ('IPAdress', 12346)
-    mouse_socket.bind(mouse_address)
-    mouse_socket.listen(1)
-
-    try:
-        server_socket.bind(server_address)
-        server_socket.listen(5)
-        print("Server is listening for connections.")
-
-        while True:
-            client_socket, client_address = server_socket.accept()
-            print(f"Accepted connection from {client_address}")
-
-            client_handler = threading.Thread(target=handle_client, args=(client_socket, mouse_socket))
-            client_handler.start()
-
-    except Exception as e:
-        print(f"Error: {e}")
-
-    finally:
-        server_socket.close()
-        sys.exit()
+def list_files():
+    current_path = os.getcwd()
+    files = os.listdir(current_path)
+    files_list = "\n".join(files)
+    return f"Actual Path: {current_path}\nSaved files: {files_list}"
 
 if __name__ == "__main__":
-    main()
+    start_server()
