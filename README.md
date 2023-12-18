@@ -5,7 +5,7 @@ Python Backdoor for client and server
 - start server.py script on YOUR PC.
 ## Commands
 ```
-- -h or --help
+-h or --help
 ```
 - shows all commands with use instructions.
 ```
